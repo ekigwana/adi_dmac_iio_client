@@ -24,7 +24,7 @@ modules:
 			M=$(PWD) modules
 
 iio_axi_dmac_test: iio_axi_dmac_test.c
-	$(TEST_CC) $(TEST_CFLAGS) -o $@ $< $(TEST_LDFLAGS) $(TEST_LIBS)
+	$(TEST_CC) $(TEST_CFLAGS) -o $@ $< I. $(TEST_LDFLAGS) $(TEST_LIBS)
 
 clean:
 	rm -f iio_axi_dmac_test

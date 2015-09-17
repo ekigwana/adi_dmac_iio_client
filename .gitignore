@@ -6,3 +6,6 @@
 *.mod.c
 *.mod.o
 *.order
+*.o
+*.a
+iio_axi_dmac_test
