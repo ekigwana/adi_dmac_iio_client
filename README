@@ -1,0 +1,25 @@
+This ADI AXI DMAC IIO client driver and test were created to ease transfer of
+data between the PS and PL on Zynq and other such devices.
+
+Build:
+
+Edit make file and set the following:
+	CROSS_CC to cross compiler or target compiler
+	TARGET_ARCH to target
+	TARGET_ROOT to target root for cross comiling or empty
+	KERNELDIR to target kernel directory
+
+PL & Devicetree Notes:
+
+	See target.tcl for hints on how to design the PL portion.
+	See target.dtsi on how to tell the kernel about the devices.
+
+Test:
+	Insert module and run test
+
+Test Notes:
+	When using iio_axi_dmac_test in a loopback configuration, remeber to
+	start both receiver and transmitter or They will block at
+	iio_buffer_refill(..) and iio_buffer_push(...) respectively.
+
+	Remember that DMA transfers blocks at a time.

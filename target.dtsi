@@ -1,0 +1,56 @@
+/include/ "skeleton.dtsi"
+
+/{
+	axi_dmac_rx: axi-dmac-rx@0 {
+		compatible = "adi,iio-rx-dma-1.00.a";
+		dmas = <&axi_iio_rx_dma 0>;
+		dma-names = "rx";
+	};
+
+	axi_dmac_tx: axi-dmac-tx@0 {
+		compatible = "adi,iio-tx-dma-1.00.a";
+		dmas = <&axi_iio_tx_dma 0>;
+		dma-names = "tx";
+	};
+};
+
+
+&axi_iio_rx_dma {
+	compatible = "adi,axi-dmac-1.00.a";
+	clocks = <&clkc 16>;
+	#dma-cells = <1>;
+
+	adi,channels {
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		dma-channel@0 {
+			reg = <0>;
+			adi,length-width = <24>;
+			adi,source-bus-width = <64>;
+			adi,source-bus-type = <1>;
+			adi,destination-bus-width = <64>;
+			adi,destination-bus-type = <0>;
+		};
+	};
+};
+
+&axi_iio_tx_dma {
+	compatible = "adi,axi-dmac-1.00.a";
+	clocks = <&clkc 16>;
+	#dma-cells = <1>;
+
+	adi,channels {
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		dma-channel@0 {
+			reg = <0>;
+			adi,length-width = <24>;
+			adi,source-bus-width = <64>;
+			adi,source-bus-type = <0>;
+			adi,destination-bus-width = <64>;
+			adi,destination-bus-type = <1>;
+		};
+	};
+};
