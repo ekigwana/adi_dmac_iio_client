@@ -1,11 +1,14 @@
 This ADI AXI DMAC IIO client driver and test were created to ease transfer of
 data between the PS and PL on Zynq and other such devices.
 
-1) Required:
-	i) ADI AXI DMAC PL IP with dependancies from
-	   https://github.com/analogdevicesinc/hdl/tree/master/library/axi_dmac
+1) Required (Instructions on how build or deploy requirements not included):
+	i)   Linux kernel from https://github.com/analogdevicesinc/linux
+	     Ensure that dma_axi_dmac driver/module is built.
 
-	2) ADI libiio from https://github.com/analogdevicesinc/libiio
+	ii)  ADI AXI DMAC PL IP with dependancies from
+	     https://github.com/analogdevicesinc/hdl/tree/master/library/axi_dmac
+
+	iii) ADI libiio from https://github.com/analogdevicesinc/libiio
 
 2) Build:
 	Edit make file and set the following:
