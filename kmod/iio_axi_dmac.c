@@ -18,13 +18,14 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer.h>
-#include <linux/iio/dma-buffer.h>
-#include <linux/iio/dmaengine.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 
-static int dma_hw_submit_block(void *data, struct iio_dma_buffer_block *block)
+static int dma_hw_submit_block(struct iio_dma_buffer_queue *queue, struct iio_dma_buffer_block *block)
 {
-	struct iio_dev *indio_dev = data;
+	struct iio_dev *indio_dev = queue->driver_data;
 	int direction = DMA_TO_DEVICE;
 
 	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN) {
@@ -32,11 +33,12 @@ static int dma_hw_submit_block(void *data, struct iio_dma_buffer_block *block)
 		block->block.bytes_used = block->block.size;
 	}
 
-	return iio_dmaengine_buffer_submit_block(block, direction);
+	return iio_dmaengine_buffer_submit_block(queue, block, direction);
 }
 
 static const struct iio_dma_buffer_ops dma_buffer_ops = {
-	.submit_block = dma_hw_submit_block,
+	.submit = dma_hw_submit_block,
+	.abort = iio_dmaengine_buffer_abort,
 };
 
 int dma_configure_ring_stream(struct iio_dev *indio_dev, const char *dma_name)
@@ -120,13 +122,12 @@ static const struct dma_info dma_tx_info = {
 	.num_channels = ARRAY_SIZE(iio_channels_out),
 };
 
-static const struct iio_info adc_info = {
-	.driver_module = THIS_MODULE,
+static const struct iio_info dmac_info = {
 };
 
 static const struct of_device_id dma_of_match[] = {
-	{ .compatible = "adi,iio-rx-dma-1.00.a", .data = &dma_rx_info },
-	{ .compatible = "adi,iio-tx-dma-1.00.a", .data = &dma_tx_info },
+	{ .compatible = "adi,iio-rx-dma-1.00.b", .data = &dma_rx_info },
+	{ .compatible = "adi,iio-tx-dma-1.00.b", .data = &dma_tx_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, dma_of_match);
@@ -144,19 +145,16 @@ static int dma_probe(struct platform_device *pdev)
 	int ret;
 
 	id = of_match_node(dma_of_match, np);
-
 	if (!id)
 		return -ENODEV;
 
 	info = id->data;
-
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
 
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
-
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
 	platform_set_drvdata(pdev, indio_dev);
@@ -164,7 +162,7 @@ static int dma_probe(struct platform_device *pdev)
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = np->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->info = &adc_info;
+	indio_dev->info = &dmac_info;
 	indio_dev->channels = info->channels;
 	indio_dev->num_channels = info->num_channels;
 	indio_dev->direction = info->direction;
@@ -173,18 +171,18 @@ static int dma_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	ret = dma_configure_ring_stream(indio_dev, dma_name);
-
 	if (ret)
 		return ret;
 
 	ret = iio_device_register(indio_dev);
-
 	if (ret)
 		goto err_unconfigure_ring;
 
+	dev_info(&pdev->dev, "%s : Found", __func__);
 	return 0;
 
-err_unconfigure_ring:
+	err_unconfigure_ring:
+	dev_info(&pdev->dev, "%s : Failed to register IIO device", __func__);
 	dma_unconfigure_ring_stream(indio_dev);
 
 	return ret;

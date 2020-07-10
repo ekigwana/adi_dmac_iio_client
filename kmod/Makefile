@@ -1,36 +1,22 @@
-#
-# Makefile iio_axi_dmac
-#
-CROSS_CC     = armv7a-hardfloat-linux-gnueabi-
-TARGET_ARCH  = arm
-TARGET_ROOT  = /home/system/zynq/os/gentoo
-KERNELDIR    = ../../linux
+# Get these variables from the environment if set
+ARCH ?= arm
+CROSS_COMPILE ?= armv7a-unknown-linux-gnueabihf-
+INSTALL_MOD_PATH ?=
+INSTALL_MOD_DIR ?= extra/drivers/iio/misc
+KBUILD ?= /lib/modules/$(shell uname -r)/build/
 
-MODULES      = iio_axi_dmac.ko
-TEST_CC      = $(CROSS_CC)gcc
-TEST_CFLAGS  = -Wall -Werror
+obj-m := iio_axi_dmac.o
 
-# Extra libs are if libiio has the kitchen sink built in
-EXTRA_LIBS   = -lavahi-common -lavahi-client -lxml2
-TEST_LIBS    = -liio $(EXTRA_LIBS)
-TEST_LDFLAGS = -L.
-
-obj-m += iio_axi_dmac.o
-
-all: modules iio_axi_dmac_test
-
-modules:
-	make ARCH=$(TARGET_ARCH) CROSS_COMPILE=$(CROSS_CC) -C $(KERNELDIR) \
-			M=$(PWD) modules
-
-iio_axi_dmac_test: iio_axi_dmac_test.c
-	$(TEST_CC) $(TEST_CFLAGS) -o $@ $< I. $(TEST_LDFLAGS) $(TEST_LIBS)
+default:
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KBUILD) \
+		M=$(PWD) modules
 
 clean:
-	rm -f iio_axi_dmac_test
-	make -C $(KERNELDIR) M=$(PWD) clean
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KBUILD) \
+		M=$(PWD) clean
 
-install:
-	make ARCH=$(TARGET_ARCH) CROSS_COMPILE=$(CROSS_CC) \
-			INSTALL_MOD_PATH=$(TARGET_ROOT) -C $(KERNELDIR) \
-			M=$(PWD) modules_install
+modules_install:
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) \
+		INSTALL_MOD_DIR=$(INSTALL_MOD_DIR) \
+		INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) -C $(KBUILD) \
+		M=$$PWD modules_install

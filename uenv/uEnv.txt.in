@@ -1,0 +1,4 @@
+ethaddr=@SSBL_ETHADDR@
+uenvcmd=run sdboot
+sdboot=setenv bitstream_image system.bit; setenv devicetree_image system.dtb; setenv kernel_image uImage; echo Loading bitstream from SD/MMC/eMMC to RAM.. && mmcinfo && load mmc 0 ${loadbit_addr} ${bitstream_image} && fpga loadb 0 ${loadbit_addr} ${filesize} && echo Copying Linux from SD to RAM... && fatload mmc 0 0x3000000 ${kernel_image} && fatload mmc 0 0x2A00000 ${devicetree_image} && bootm 0x3000000 - 0x2A00000
+bootargs=console=ttyPS0,115200 root=/dev/mmcblk0p2 rw earlyprintk rootfstype=ext4 rootwait

@@ -1,0 +1,57 @@
+/ {
+	axi_iio_dma_in: axi-iio-dma-in@10 {
+		compatible = "adi,iio-rx-dma-1.00.b";
+		dmas = <&axi_iio_dmac_in 0>;
+		dma-names = "rx";
+	};
+
+	axi_iio_dma_out:  axi-iio-dma-out@11 {
+		compatible = "adi,iio-tx-dma-1.00.b";
+		dmas = <&axi_iio_dmac_out 0>;
+		dma-names = "tx";
+	};
+};
+
+&fpga_axi {
+	axi_iio_dmac_in: axi_iio_dmac_in@7c460000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c460000 0x10000>;
+		interrupts = <0 31 4>;
+		clocks = <&clkc 16>;
+		#dma-cells = <1>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_iio_dmac_out: axi_iio_dmac_out@7c480000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c480000 0x10000>;
+		interrupts = <0 32 4>;
+		clocks = <&clkc 16>;
+		#dma-cells = <1>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+};

@@ -1,0 +1,36 @@
+include(ExternalProject)
+
+set_property (DIRECTORY PROPERTY EP_BASE Dependencies)
+
+## Linux kernel variant from Analog Devices.
+set(EXT_PROJECT kmod_adi_dmac)
+set(EXT_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/kmod)
+set(KMOD_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/${EXT_PROJECT}/src/${EXT_PROJECT})
+
+# Set build flags based on processor count.
+include(ProcessorCount)
+
+ProcessorCount(N)
+
+if(NOT N EQUAL 0)
+  set(BUILD_FLAGS -j${N})
+endif()
+
+ExternalProject_Add(${EXT_PROJECT}
+	DEPENDS kernel
+	PREFIX ${EXT_PROJECT}
+	SOURCE_DIR ${EXT_SRC_DIR}
+	USES_TERMINAL_CONFIGURE 1
+	USES_TERMINAL_BUILD 1
+	USES_TERMINAL_INSTALL 1
+	USES_TERMINAL_TEST 1
+	CONFIGURE_COMMAND ${CMAKE_COMMAND} -E create_symlink ${EXT_SRC_DIR}/Makefile ${KMOD_SRC_DIR}-build/Makefile &&
+		${CMAKE_COMMAND} -E create_symlink ${EXT_SRC_DIR}/iio_axi_dmac.c ${KMOD_SRC_DIR}-build/iio_axi_dmac.c
+	BUILD_COMMAND make ARCH=${TGT_ARCH} CROSS_COMPILE=${CMAKE_TOOLCHAIN_PREFIX} KBUILD=${KERNEL_DIR} ${BUILD_FLAGS}
+		clean && make ARCH=${TGT_ARCH} CROSS_COMPILE=${CMAKE_TOOLCHAIN_PREFIX} KBUILD=${KERNEL_DIR} ${BUILD_FLAGS}
+	BUILD_BYPRODUCTS ""
+	INSTALL_COMMAND make ARCH=${TGT_ARCH} CROSS_COMPILE=${CMAKE_TOOLCHAIN_PREFIX} KBUILD=${KERNEL_DIR} ${BUILD_FLAGS}
+		modules_install INSTALL_MOD_PATH=${CMAKE_CURRENT_BINARY_DIR}/image INSTALL_MOD_DIR="extra/drivers/iio/misc"
+)
+
+list (APPEND DEPENDENCIES ${EXT_PROJECT})

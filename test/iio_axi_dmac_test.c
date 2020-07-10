@@ -3,29 +3,35 @@
  *
  **/
 
-#include <errno.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include <assert.h>
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <iio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
+
+#define IIO_ENSURE(expr) { \
+	if (!(expr)) { \
+		(void) fprintf(stderr, "assertion failed (%s:%d)\n", __FILE__, __LINE__); \
+		(void) abort(); \
+	} \
+}
 
 static const struct option options[] = {
 	{"help", no_argument, 0, 'h'},
 	{"buffer-size", required_argument, 0, 's'},
+	{"recreate-dma-buffer", no_argument, 0, 'r'},
+	{"iio-device-name", required_argument, 0, 'd'},
 	{0, 0, 0, 0},
 };
 
 static const char *options_descriptions[] = {
 	"Show this help and quit.",
 	"Size of the buffer. Default is 1M byte and is loaded with count from 1.",
+	"Recreate DMA buffer before push or refill.",
+	"IIO device name."
 };
 
 static void usage(char *argv[])
@@ -40,20 +46,20 @@ static void usage(char *argv[])
 }
 
 /* IIO structs required for streaming */
-static struct iio_context *ctx   = NULL;
+static struct iio_context *ctx = NULL;
 static struct iio_channel *dma_chan = NULL;
-static struct iio_buffer  *dma_buffer = NULL;
+static struct iio_buffer *dma_buffer = NULL;
+
+static bool stop = false;
 
 /* cleanup and exit */
-void shutdown(int s)
+void shutdown()
 {
-	printf("* Destroying buffers\n");
-
+	printf("* Destroying buffer\n");
 	if (dma_buffer)
 		iio_buffer_destroy(dma_buffer);
 
-	printf("* Disabling streaming channels\n");
-
+	printf("* Disabling streaming channel\n");
 	if (dma_chan)
 		iio_channel_disable(dma_chan);
 
@@ -64,41 +70,42 @@ void shutdown(int s)
 	exit(0);
 }
 
+static void handle_sig(int sig)
+{
+	printf("Waiting for process to finish... Got signal %d\n", sig);
+	stop = true;
+}
+
 /* simple configuration and streaming */
 int main (int argc, char **argv)
 {
-	size_t nbytes_rx;
-	size_t nbytes_tx;
-	void *p_dat;
-	void *p_end;
-	ptrdiff_t p_inc;
+	int nbytes = 0;
+	uint64_t *p_dat = NULL;
+	uint64_t *p_end = NULL;
+	ptrdiff_t p_inc = 0;
 
-	struct iio_device *dev;
-	const char *device_name;
+	struct iio_device *dev = NULL;
+	char *dev_name = NULL;
 	unsigned int buffer_size = 1024 * 1024;
-	unsigned int i;
-	uint64_t *work_buffer;
-	uint64_t *buf;
+	unsigned int i = 0;
 	bool device_is_tx = false;
-	unsigned int nb_channels;
-	unsigned int n_tx = 0;
-	unsigned int n_rx = 0;
+	bool recreate_dma_buffer = false;
 
-	int c;
 	int option_index = 0;
 	int arg_index = 0;
 	char unit;
-	int ret;
+	int ret = 0;
 
-	while ((c = getopt_long(argc, argv, "+hs:",
-		options, &option_index)) != -1) {
-		switch (c) {
-			case 'h':
-				usage(argv);
-				return EXIT_SUCCESS;
+	while ((i = getopt_long(argc, argv, "d:s:rh", options, &option_index)) != -1) {
+		switch (i) {
+			case 'd':
+				dev_name = optarg;
+				break;
+			case 'r':
+				recreate_dma_buffer = true;
+				break;
 			case 's':
-				arg_index += 2;
-				ret = sscanf(argv[arg_index], "%d%c", &buffer_size, &unit);
+				ret = sscanf(optarg, "%d%c", &buffer_size, &unit);
 				if (ret == 0)
 					return EXIT_FAILURE;
 				if (ret == 2) {
@@ -108,10 +115,13 @@ int main (int argc, char **argv)
 						buffer_size *= 1024 * 1024;
 				}
 				break;
-			case '?':
-				return EXIT_FAILURE;
+			case 'h':
+			default:
+				usage(argv);
+				return EXIT_SUCCESS;
 		}
 	}
+	printf("recreate_dma_buffer: %d\n", recreate_dma_buffer);
 
 	if (arg_index + 1 >= argc) {
 		fprintf(stderr, "Incorrect number of arguments.\n\n");
@@ -120,119 +130,141 @@ int main (int argc, char **argv)
 	}
 
 	// Listen to ctrl+c and assert
-	signal(SIGINT, shutdown);
+	signal(SIGINT, handle_sig);
 
-	ctx = iio_create_default_context();
+	IIO_ENSURE((ctx = iio_create_default_context()) && "No context");
+	IIO_ENSURE(iio_context_get_devices_count(ctx) > 0 && "No devices");
+	IIO_ENSURE((dev = iio_context_find_device(ctx, dev_name)) && "No streaming device found");
+	IIO_ENSURE(iio_device_get_channels_count(dev) == 1 && "No channels");
+	IIO_ENSURE((dma_chan = iio_device_get_channel(dev, 0)) && "No channel");
+	IIO_ENSURE(iio_channel_is_scan_element(dma_chan) && "Not streaming capabilities");
 
-	if (!ctx) {
-		fprintf(stderr, "Unable to create IIO context\n");
-		return EXIT_FAILURE;
-	}
+	iio_channel_enable(dma_chan);
 
-	device_name = argv[arg_index + 1];
-	dev = iio_context_find_device(ctx, device_name);
+	device_is_tx = iio_channel_is_output(dma_chan);
 
-	if (!dev) {
-		fprintf(stderr, "Device %s not found\n", device_name);
-		shutdown(0);
-	}
-
-	nb_channels = iio_device_get_channels_count(dev);
-
-	for (i = 0; i < nb_channels; i++) {
-		struct iio_channel *ch = iio_device_get_channel(dev, i);
-
-		if (!iio_channel_is_scan_element(ch))
-			continue;
-
-		iio_channel_enable(ch);
-
-		if (iio_channel_is_output(ch)) {
-			dma_chan = ch;
-			n_tx++;
-		} else {
-			dma_chan = ch;
-			n_rx++;
-		}
-	}
-
-	if (n_tx >= n_rx)
-		device_is_tx = true;
-	else
-		device_is_tx = false;
-
-	work_buffer = malloc(buffer_size * sizeof(uint64_t));
-
-	for (i = 0; i < buffer_size; i++)
-		work_buffer[i] = i + 1;
-
-	i = 0;
-
-	while(!dma_buffer) {
-		dma_buffer = iio_device_create_buffer(dev, buffer_size, false);
-
-		if (!dma_buffer)
-			printf("* BUG: iio_device_create_buffer(...) returns NULL %d time(s)\n", ++i);
-	}
+	IIO_ENSURE((dma_buffer = iio_device_create_buffer(dev, buffer_size, false)) && "Failed to create buffer");
 
 	if (device_is_tx) {
+		uint64_t n = 0;
 		p_inc = iio_buffer_step(dma_buffer);
 		p_end = iio_buffer_end(dma_buffer);
-		buf   = iio_buffer_start(dma_buffer);
 
-		while(!buf) {
-			perror("* BUG: Could not get iio buffer start");
-			buf = iio_buffer_start(dma_buffer);
+		for (p_dat = (uint64_t *)iio_buffer_first(dma_buffer, dma_chan); p_dat < p_end; p_dat += p_inc) {
+			for (i = 0; i < sizeof(uint64_t); ++i)
+				*((uint64_t *)p_dat + i) = ++n;
 		}
-
-		memcpy(buf, work_buffer, buffer_size * sizeof(uint64_t));
 
 		printf("* TX: ");
 
-		for (p_dat = buf; p_dat < p_end; p_dat += p_inc)
-			printf("0x%jx ", *((uint64_t *)p_dat));
-
+		for (p_dat = (uint64_t *)iio_buffer_first(dma_buffer, dma_chan); p_dat < p_end; p_dat += p_inc) {
+			for (i = 0; i < sizeof(uint64_t); ++i)
+				printf("0x%jx ", *((uint64_t *)p_dat + i));
+		}
 		printf("\n");
-	} else {
-		memset(work_buffer, 0, buffer_size * sizeof(uint64_t));
 	}
 
 	printf("Performing data transfer. Ctrl + c to terminate.\n");
 
-	while (1) {
-		// Schedule TX buffer
+	while (!stop) {
+		// Output.
 		if (device_is_tx) {
-			nbytes_tx = iio_buffer_push(dma_buffer);
+			nbytes = iio_buffer_push(dma_buffer);
+			if (nbytes < 0) {
+				printf("* TX: ");
 
-			if (nbytes_tx < 0)
-				printf("* Error pushing dma buffer %d\n", (int) nbytes_tx);
-		} else {
-			nbytes_rx = iio_buffer_refill(dma_buffer);
+				for (p_dat = (uint64_t *)iio_buffer_first(dma_buffer, dma_chan); p_dat < p_end; p_dat += p_inc) {
+					for (i = 0; i < sizeof(uint64_t); ++i)
+						printf("0x%jx ", *((uint64_t *)p_dat + i));
+				}
+				printf("\n");
+				printf("* Error pushing buffer %d\n", nbytes);
+				printf("Start: %p Stop: %p\n", (uint64_t *)iio_buffer_first(dma_buffer, dma_chan), (uint64_t *)iio_buffer_end(dma_buffer) - 1);
+				shutdown();
+			}
+			else {
+				printf("* TX: ");
 
-			if (nbytes_rx < 0) {
-				printf("* Error refilling dma buffer %d\n", (int) nbytes_rx);
-			} else {
-				p_inc = iio_buffer_step(dma_buffer);
-				p_end = iio_buffer_end(dma_buffer);
+				for (p_dat = (uint64_t *)iio_buffer_first(dma_buffer, dma_chan); p_dat < p_end; p_dat += p_inc) {
+					for (i = 0; i < sizeof(uint64_t); ++i)
+						printf("0x%jx ", *((uint64_t *)p_dat + i));
+				}
+				printf("\n");
+				printf(">>> %s:%d [%s] TX nbytes: %d\n", __FILE__, __LINE__, __func__, nbytes); // TODO: DEL
+				printf("Start: %p Stop: %p\n", (uint64_t *)iio_buffer_first(dma_buffer, dma_chan), (uint64_t *)iio_buffer_end(dma_buffer) - 1);
 
-				buf = iio_buffer_start(dma_buffer);
+				if (recreate_dma_buffer) { // This prevents growth as printed above.
+					iio_buffer_cancel(dma_buffer);
+					iio_buffer_destroy(dma_buffer);
+					IIO_ENSURE((dma_buffer = iio_device_create_buffer(dev, buffer_size, false)) && "Failed to create buffer");
 
-				while(!buf) {
-					perror("* BUG: Could not get iio buffer start");
-					buf = iio_buffer_start(dma_buffer);
+					uint64_t n = 0;
+					p_inc = iio_buffer_step(dma_buffer);
+					p_end = iio_buffer_end(dma_buffer);
+
+					for (p_dat = (uint64_t *)iio_buffer_first(dma_buffer, dma_chan); p_dat < p_end; p_dat += p_inc) {
+						for (i = 0; i < sizeof(uint64_t); ++i)
+							*((uint64_t *)p_dat + i) = ++n;
+					}
 				}
 
-				//printf("* RX (%d): ", (int) nbytes_rx);
-
-				//for (p_dat = iio_buffer_first(dma_buffer, dma_chan); p_dat < p_end; p_dat += p_inc)
-				//	printf("0x%jx ", *((uint64_t *)p_dat));
-
-				//printf("\n");
+				sleep(1); // Artificially slow down.
 			}
+
+			continue;
 		}
+
+		// Input.
+		nbytes = iio_buffer_refill(dma_buffer);
+		if (nbytes < 0) {
+			printf("* Error refilling buffer %d\n", nbytes);
+// 			shutdown();
+		}
+		else {
+			printf(">>> %s:%d [%s] RX nbytes: %d\n", __FILE__, __LINE__, __func__, nbytes); // TODO: DEL
+
+			printf("* RX (%d): ", nbytes);
+
+			p_inc = iio_buffer_step(dma_buffer);
+			p_end = iio_buffer_end(dma_buffer);
+			for (p_dat = (uint64_t *)iio_buffer_first(dma_buffer, dma_chan); p_dat < p_end; p_dat += p_inc)
+				printf("0x%jx ", *((uint64_t *)p_dat));
+
+			printf("\n");
+
+			sleep(1);
+		}
+
+		if (recreate_dma_buffer) { // This prevents growth as printed above.
+			iio_buffer_cancel(dma_buffer);
+			iio_buffer_destroy(dma_buffer);
+			IIO_ENSURE((dma_buffer = iio_device_create_buffer(dev, buffer_size, false)) && "Failed to create buffer");
+
+			if (nbytes < 0)
+				continue;
+
+			uint64_t n = 0;
+			p_inc = iio_buffer_step(dma_buffer);
+			p_end = iio_buffer_end(dma_buffer);
+
+			for (p_dat = (uint64_t *)iio_buffer_first(dma_buffer, dma_chan); p_dat < p_end; p_dat += p_inc) {
+				for (i = 0; i < sizeof(uint64_t); ++i)
+					*((uint64_t *)p_dat + i) = ++n;
+			}
+			printf("* RX (%d): ", nbytes);
+
+			p_inc = iio_buffer_step(dma_buffer);
+			p_end = iio_buffer_end(dma_buffer);
+			for (p_dat = (uint64_t *)iio_buffer_first(dma_buffer, dma_chan); p_dat < p_end; p_dat += p_inc)
+				printf("0x%jx ", *((uint64_t *)p_dat));
+
+			printf("\n");
+		}
+
+		sleep(1); // Artificially slow down.
 	}
 
-	shutdown(0);
+	shutdown();
 
 	return 0;
 }
