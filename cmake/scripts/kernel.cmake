@@ -8,13 +8,7 @@ set(EXT_PROJECT kernel)
 set(EXT_PROJECT_GIT_BRANCH "master")
 set(EXT_PROJECT_GIT_COMMIT "")
 
-if(USE_HTTPS_REPO_URI)
-	set(EXT_PROJECT_REPOSITORY "https://repo.scires.com/scm/mir/adi_linux.git")
-	# set(EXT_PROJECT_REPOSITORY "https://github.com/analogdevicesinc/linux.git")
-else()
-	set(EXT_PROJECT_REPOSITORY "ssh://git@repo.scires.com:7999/mir/adi_linux.git")
-endif()
-
+set(EXT_PROJECT_REPOSITORY "https://github.com/analogdevicesinc/linux.git")
 set(KERNEL_DIR ${CMAKE_CURRENT_BINARY_DIR}/${EXT_PROJECT}/src/${EXT_PROJECT})
 
 # Set build flags based on processor count.
