@@ -27,14 +27,14 @@ project(${PROJECT_NAME} C)
 
 include(CMakeDependentOption)
 
-option(WITH_XILINX_PL_DMAC_EXAMPLE "Build FPGA image" ON)
-option(WITH_XILINX_FSBL "Build First stage boot loader (FSBL)" ON)
-option(WITH_XILINX_SSBL "Build Second stage boot loader (SSBL - UBOOT)" ON)
+option(WITH_XILINX_PL_DMAC_EXAMPLE "Build FPGA image" OFF)
+option(WITH_XILINX_FSBL "Build First stage boot loader (FSBL)" OFF)
+option(WITH_XILINX_SSBL "Build Second stage boot loader (SSBL - UBOOT)" OFF)
 
-cmake_dependent_option(WITH_BOOT_BIN_GEN "Generate Zynq boot binary" ON
+cmake_dependent_option(WITH_BOOT_BIN_GEN "Generate Zynq boot binary" OFF
 	"WITH_XILINX_PL_DMAC_EXAMPLE;WITH_XILINX_FSBL;WITH_XILINX_SSBL" OFF)
 
-	option(WITH_ADI_LINUX_KERNEL "Build Linux kernel Image" ON)
+option(WITH_ADI_LINUX_KERNEL "Build Linux kernel Image" OFF)
 option(WITH_DMAC_KMOD "Build kernel module" ON)
 option(WITH_DMAC_EXAMPLE "Build examples" ON)
 
@@ -48,7 +48,7 @@ include(GNUInstallDirs)
 find_package (Git "2.14.0" REQUIRED)
 
 if(WITH_XILINX_PL_DMAC_EXAMPLE)
-	find_package(Vivado "2018.2" REQUIRED)
+	find_package(Vivado "2021.1" REQUIRED)
 
 	include(cmake/scripts/hdl.cmake)
 
