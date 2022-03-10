@@ -1,12 +1,12 @@
 / {
 	axi_iio_dma_in: axi-iio-dma-in@10 {
-		compatible = "adi,iio-rx-dma-1.00.b";
+		compatible = "adi,iio-rx-dma-1.00.c";
 		dmas = <&axi_iio_dmac_in 0>;
 		dma-names = "rx";
 	};
 
 	axi_iio_dma_out:  axi-iio-dma-out@11 {
-		compatible = "adi,iio-tx-dma-1.00.b";
+		compatible = "adi,iio-tx-dma-1.00.c";
 		dmas = <&axi_iio_dmac_out 0>;
 		dma-names = "tx";
 	};
