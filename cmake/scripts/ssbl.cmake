@@ -8,13 +8,7 @@ set(EXT_PROJECT ssbl)
 set(EXT_PROJECT_GIT_BRANCH "master")
 set(EXT_PROJECT_GIT_COMMIT "xilinx-v2018.2")
 
-if(USE_HTTPS_REPO_URI)
-	set(EXT_PROJECT_REPOSITORY "https://repo.scires.com/scm/mir/u-boot-xlnx.git")
-	# set(EXT_PROJECT_REPOSITORY "https://github.com/Xilinx/u-boot-xlnx.git")
-else()
-	set(EXT_PROJECT_REPOSITORY "ssh://git@repo.scires.com:7999/mir/u-boot-xlnx.git")
-endif()
-
+set(EXT_PROJECT_REPOSITORY "https://github.com/Xilinx/u-boot-xlnx.git")
 set(SSBL_DIR ${CMAKE_CURRENT_BINARY_DIR}/${EXT_PROJECT}/src/${EXT_PROJECT})
 
 # Set build flags based on processor count.

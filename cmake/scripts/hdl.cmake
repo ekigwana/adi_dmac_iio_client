@@ -5,15 +5,10 @@ set_property (DIRECTORY PROPERTY EP_BASE Dependencies)
 ## ADI HDL Project.
 set(EXT_PROJECT hdl)
 
-set(EXT_PROJECT_GIT_BRANCH "hdl_2018_r2_pack2")
+set(EXT_PROJECT_GIT_BRANCH "master")
 set(EXT_PROJECT_GIT_COMMIT "")
 
-if(USE_HTTPS_REPO_URI)
-	set(EXT_PROJECT_REPOSITORY "https://repo.scires.com/scm/mir/adi_hdl.git")
-	# set(EXT_PROJECT_REPOSITORY "https://github.com/analogdevicesinc/hdl.git")
-else()
-	set(EXT_PROJECT_REPOSITORY "ssh://git@repo.scires.com:7999/mir/adi_hdl.git")
-endif()
+set(EXT_PROJECT_REPOSITORY "https://github.com/analogdevicesinc/hdl.git")
 
 set(HDL_DIR ${CMAKE_CURRENT_BINARY_DIR}/${EXT_PROJECT}/src/${EXT_PROJECT}/projects/adrv9364z7020/ccbob_lvds/adrv9364z7020_ccbob_lvds.runs/impl_1)
 
