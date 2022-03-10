@@ -1,0 +1,5 @@
+the_ROM_image:
+{
+	[bootloader]@FSBL_ELF@
+	@SSBL_ELF@
+}

@@ -1,0 +1,72 @@
+From 2a5c225179aec45604d542694bac26080d297547 Mon Sep 17 00:00:00 2001
+From: Edward Kigwana <ekigwana@scires.com>
+Date: Wed, 8 Jul 2020 17:00:07 +0000
+Subject: [PATCH 1/1] projects: adrv9364z7020: ccbob_lvds: Add AXI DMAC loop
+ back for test
+
+Added RX and TX interfaces to facilitate AXI DMAC IIO kernel development.
+
+Signed-off-by: Edward Kigwana <ekigwana@scires.com>
+---
+ .../ccbob_lvds/adi_dmac_loop_back.tcl         | 37 +++++++++++++++++++
+ .../adrv9364z7020/ccbob_lvds/system_bd.tcl    |  1 +
+ 2 files changed, 38 insertions(+)
+ create mode 100644 projects/adrv9364z7020/ccbob_lvds/adi_dmac_loop_back.tcl
+
+diff --git a/projects/adrv9364z7020/ccbob_lvds/adi_dmac_loop_back.tcl b/projects/adrv9364z7020/ccbob_lvds/adi_dmac_loop_back.tcl
+new file mode 100644
+index 0000000..e5367cf
+--- /dev/null
++++ b/projects/adrv9364z7020/ccbob_lvds/adi_dmac_loop_back.tcl
+@@ -0,0 +1,37 @@
++# Receive ADI AXI DMAC
++ad_ip_instance axi_dmac axi_iio_dmac_in
++ad_ip_parameter axi_iio_dmac_in CONFIG.DMA_TYPE_SRC 1
++ad_ip_parameter axi_iio_dmac_in CONFIG.DMA_TYPE_DEST 0
++ad_ip_parameter axi_iio_dmac_in CONFIG.CYCLIC 0
++ad_ip_parameter axi_iio_dmac_in CONFIG.SYNC_TRANSFER_START 1
++ad_ip_parameter axi_iio_dmac_in CONFIG.AXI_SLICE_SRC 0
++ad_ip_parameter axi_iio_dmac_in CONFIG.AXI_SLICE_DEST 0
++ad_ip_parameter axi_iio_dmac_in CONFIG.DMA_2D_TRANSFER 0
++ad_ip_parameter axi_iio_dmac_in CONFIG.DMA_DATA_WIDTH_SRC 64
++ad_connect sys_cpu_clk axi_iio_dmac_in/s_axis_aclk
++ad_connect sys_cpu_resetn axi_iio_dmac_in/m_dest_axi_aresetn
++
++# Transmit ADI AXI DMAC
++ad_ip_instance axi_dmac axi_iio_dmac_out
++ad_ip_parameter axi_iio_dmac_out CONFIG.DMA_TYPE_SRC 0
++ad_ip_parameter axi_iio_dmac_out CONFIG.DMA_TYPE_DEST 1
++ad_ip_parameter axi_iio_dmac_out CONFIG.CYCLIC 0
++ad_ip_parameter axi_iio_dmac_out CONFIG.AXI_SLICE_SRC 0
++ad_ip_parameter axi_iio_dmac_out CONFIG.AXI_SLICE_DEST 0
++ad_ip_parameter axi_iio_dmac_out CONFIG.DMA_2D_TRANSFER 0
++ad_ip_parameter axi_iio_dmac_out CONFIG.DMA_DATA_WIDTH_DEST 64
++ad_connect sys_cpu_clk axi_iio_dmac_out/m_axis_aclk
++ad_connect sys_cpu_resetn axi_iio_dmac_out/m_src_axi_aresetn
++
++# Interconnects
++ad_connect axi_iio_dmac_out/m_axis axi_iio_dmac_in/s_axis
++ad_cpu_interconnect 0x7C460000 axi_iio_dmac_in
++ad_cpu_interconnect 0x7C480000 axi_iio_dmac_out
++
++ad_mem_hp3_interconnect sys_cpu_clk sys_ps7/S_AXI_HP3
++ad_mem_hp3_interconnect sys_cpu_clk axi_iio_dmac_in/m_dest_axi
++ad_mem_hp3_interconnect sys_cpu_clk axi_iio_dmac_out/m_src_axi
++
++# interrupts
++ad_cpu_interrupt ps-2 mb-2 axi_iio_dmac_in/irq
++ad_cpu_interrupt ps-3 mb-3 axi_iio_dmac_out/irq
+diff --git a/projects/adrv9364z7020/ccbob_lvds/system_bd.tcl b/projects/adrv9364z7020/ccbob_lvds/system_bd.tcl
+index eae7e85..1795517 100644
+--- a/projects/adrv9364z7020/ccbob_lvds/system_bd.tcl
++++ b/projects/adrv9364z7020/ccbob_lvds/system_bd.tcl
+@@ -1,5 +1,6 @@
+
+ source ../common/adrv9364z7020_bd.tcl
++source adi_dmac_loop_back.tcl
+ source ../common/ccbob_bd.tcl
+
+ cfg_ad9361_interface LVDS
+--
+2.27.0
+

@@ -1,3 +1,5 @@
+external
+*build*
 *.ko.cmd
 *.o.cmd
 *.tmp_versions
@@ -8,4 +10,4 @@
 *.order
 *.o
 *.a
-iio_axi_dmac_test
+*.kdev4
