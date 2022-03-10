@@ -11,15 +11,15 @@
 
 #include <linux/module.h>
 #include <linux/io.h>
-#include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-#include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer_impl.h>
 #include <linux/iio/buffer-dma.h>
 #include <linux/iio/buffer-dmaengine.h>
 
@@ -49,7 +49,7 @@ int dma_configure_ring_stream(struct iio_dev *indio_dev, const char *dma_name)
 		dma_name = "rx";
 
 	buffer = iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
-					    &dma_buffer_ops, indio_dev);
+			&dma_buffer_ops, indio_dev);
 
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
@@ -92,13 +92,8 @@ struct dma_info {
 #define AXI_DMAC_MAX_CHANNEL 1
 
 struct dma_state {
-	struct device 	*dev_spi;
-	struct iio_info	iio_info;
-	unsigned	id;
-	bool		has_fifo_interface;
-	unsigned long 	dma_clk;
-	bool		streaming_dma;
-
+	struct iio_info			iio_info;
+	unsigned				id;
 	struct iio_chan_spec	channels[AXI_DMAC_MAX_CHANNEL];
 };
 
@@ -126,8 +121,8 @@ static const struct iio_info dmac_info = {
 };
 
 static const struct of_device_id dma_of_match[] = {
-	{ .compatible = "adi,iio-rx-dma-1.00.b", .data = &dma_rx_info },
-	{ .compatible = "adi,iio-tx-dma-1.00.b", .data = &dma_tx_info },
+	{ .compatible = "adi,iio-rx-dma-1.00.c", .data = &dma_rx_info },
+	{ .compatible = "adi,iio-tx-dma-1.00.c", .data = &dma_tx_info },
 	{ /* end of list */ },
 };
 MODULE_DEVICE_TABLE(of, dma_of_match);
@@ -150,7 +145,6 @@ static int dma_probe(struct platform_device *pdev)
 
 	info = id->data;
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
-
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
